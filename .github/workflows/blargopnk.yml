@@ -1,0 +1,52 @@
+name: Continuous Persistent VPS
+
+on:
+  schedule:
+    - cron: '* * * * *'   # Every minute
+  workflow_dispatch:
+
+jobs:
+  vps-session:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350  # ~6 hours max per job
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set hostname to biralo
+        run: sudo hostnamectl set-hostname RG
+
+      - name: Install prerequisites + OpenSSH
+        run: |
+          sudo apt update
+          sudo apt install -y tmate curl unzip sudo net-tools neofetch openssh-server
+          sudo systemctl enable ssh
+          sudo systemctl start ssh
+
+      - name: Enable root SSH login
+        run: |
+          echo "root:root" | sudo chpasswd
+          sudo sed -i 's/^#PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^#PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+
+      - name: Start tmate session (backup access)
+        uses: mxschmitt/action-tmate@v3
+
+      - name: Show connection info
+        run: |
+          echo "======================"
+          echo "SSH connection details"
+          echo "======================"
+          echo "Username: root"
+          echo "Password: root"
+          echo "Server IP (GitHub runner local):"
+          hostname -I || echo "No direct IP available"
+          echo ""
+          echo ":point_right: Use tmate session above for guaranteed SSH access."
+
+      - name: Sleep to keep VPS alive
+        run: sleep 21600  # 6 hours
